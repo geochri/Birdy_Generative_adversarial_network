@@ -1,0 +1,14 @@
+*.tar
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.pth
+*.pdf
+*.pptx
+*.xlsx
+*.sql
+/data/*
+/.ipynb_checkpoints/*
