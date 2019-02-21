@@ -192,6 +192,7 @@ for epoch in range(start_epoch, epochs):
                             'optimizer' : G_optimizer.state_dict()})
     fig2 = decode_generator_image(data[0],fake[0])
     fig2.show()
+    plt.savefig(os.path.join("./data/",f"birdy_{epoch}.png"))
     if epoch == epoch_stop-1:
             break
 
