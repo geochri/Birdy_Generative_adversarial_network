@@ -12,3 +12,4 @@
 *.sql
 /data/*
 /.ipynb_checkpoints/*
+/savemodel/*

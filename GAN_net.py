@@ -26,7 +26,7 @@ class D_net(nn.Module):
         self.bn4 = nn.BatchNorm2d(512)
         self.conv5 = nn.Conv2d(512, 1, kernel_size=3, stride=1, padding=1)
         self.bn5 = nn.BatchNorm2d(1)
-        self.fc1 = nn.Linear(224, 1)
+        self.fc1 = nn.Linear(8*8, 1)
         
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
@@ -38,28 +38,29 @@ class D_net(nn.Module):
         x = F.relu(self.bn4(self.conv4(x)))
         x = F.relu(self.bn5(self.conv5(x)))
         x = self.pool(x)
-        x = F.relu(self.fc1(x))
+        x = x.view(-1, 8*8)
+        x = torch.sigmoid(self.fc1(x))
         return x
     
 class G_net(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size=8*8, batch_size=25):
         super(G_net, self).__init__()
-        self.fc1 = nn.Linear(input_size, input_size)
-        self.dconv1 = nn.ConvTranspose2d(1, 512, kernel_size=3, stride=1, padding=1)
+        self.batch_size = batch_size
+        self.dconv1 = nn.ConvTranspose2d(1, 512, kernel_size=4, stride=2, padding=1)
         self.bn1 = nn.BatchNorm2d(512)
-        self.dconv2 = nn.ConvTranspose2d(512, 256, kernel_size=3, stride=1, padding=1)
+        self.dconv2 = nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1)
         self.bn2 = nn.BatchNorm2d(256)
-        self.dconv3 = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=1, padding=1)
+        self.dconv3 = nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1)
         self.bn3 = nn.BatchNorm2d(128)
-        self.dconv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=1, padding=1)
+        self.dconv4 = nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1)
         self.bn4 = nn.BatchNorm2d(64)
         self.dconv5 = nn.ConvTranspose2d(64, 3, kernel_size=3, stride=1, padding=1)
         
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.bn1(self.dconv1(x)))
-        x = F.relu(self.bn2(self.dconv2(x)))
-        x = F.relu(self.bn3(self.dconv3(x)))
-        x = F.relu(self.bn4(self.dconv4(x)))
-        x = F.relu(self.dconv5(x))
+        x = x.view(-1, 1, 8, 8)
+        x = F.relu(self.bn1(self.dconv1(x)));# print(x.size())
+        x = F.relu(self.bn2(self.dconv2(x)));# print(x.size())
+        x = F.relu(self.bn3(self.dconv3(x)));# print(x.size())
+        x = F.relu(self.bn4(self.dconv4(x)));# print(x.size())
+        x = F.tanh(self.dconv5(x, output_size=torch.Size([self.batch_size, 3, 128, 128])))
         return x
