@@ -131,11 +131,12 @@ if cuda:
 criterion = nn.BCELoss()
 D_optimizer = optim.Adam(Dnet.parameters(), lr=0.0002, betas=(0.5, 0.999))
 G_optimizer = optim.Adam(Gnet.parameters(), lr=0.0002, betas=(0.5, 0.999))
+start = load(Dnet, Gnet, D_optimizer, G_optimizer, load_best=False)
 
 Dlosses_per_epoch = []
 Glosses_per_epoch = []
 start_epoch = 0
-epoch_stop = 20
+epoch_stop = 250
 epochs = 500
 best_acc = 85
 generator = generator_inputs()
