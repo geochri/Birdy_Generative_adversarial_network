@@ -154,6 +154,7 @@ G_optimizer = optim.Adam(Gnet.parameters(), lr=0.0005, betas=(0.5, 0.999))
 
 Dlosses_per_epoch = []
 Glosses_per_epoch = []
+G_grad_first = []; G_grad_last = []; D_grad_first = []; D_grad_last = []
 start_epoch = 0
 epoch_stop = 100
 epochs = 2500
@@ -162,7 +163,7 @@ generator = generator_inputs()
 for epoch in range(start_epoch, epochs):
     Dnet.train(); Gnet.train()
     total_dloss = 0.0; total_gloss = 0.0
-    Dlosses_per_batch = []; Glosses_per_batch = []
+    Dlosses_per_batch = []; Glosses_per_batch = []; G_grad_first_b = []; G_grad_last_b = []; D_grad_first_b = []; D_grad_last_b = []
     for i, data in enumerate(train_loader, 0):
         is_best = False
         if cuda:
@@ -182,6 +183,7 @@ for epoch in range(start_epoch, epochs):
         fake_loss = criterion(fake_outputs, torch.autograd.Variable(torch.zeros([fake_outputs.size()[0],1])).cuda())
         fake_loss.backward()
         D_loss = real_loss + fake_loss
+        D_grad_first_b.append(Dnet.conv1.weight.grad.mean().item()); D_grad_last_b.append(Dnet.conv5.weight.grad.mean().item())
         # update discriminator's weights
         D_optimizer.step()
         
@@ -191,6 +193,7 @@ for epoch in range(start_epoch, epochs):
         d_outputs = Dnet(outputs1/255)
         G_loss = criterion(d_outputs, torch.autograd.Variable(torch.ones([d_outputs.size()[0],1])).cuda()) # G to generate real images
         G_loss.backward()
+        G_grad_first_b.append(Gnet.dconv1.weight.grad.mean().item()); G_grad_last_b.append(Gnet.dconv5.weight.grad.mean().item())
         G_optimizer.step()
         
         total_dloss += D_loss.item()
@@ -198,12 +201,16 @@ for epoch in range(start_epoch, epochs):
         if i % 10 == 9:    # print every 1000 mini-batches of size = batch_size
             print('[Epoch: %d, %5d/ %d points] D loss per batch: %.5f \t G loss per batch: %.5f' %
                   (epoch + 1, (i + 1)*b_size, len(trainset), total_dloss/10, total_gloss/10))
+            print("Gradients D_1 D_5 G_1 G_5: %.5f, %.5f, %.5f, %.5f" % (D_grad_first_b[-1], D_grad_last_b[-1], \
+                                                                         G_grad_first_b[-1], G_grad_last_b[-1]))
             Dlosses_per_batch.append(total_dloss/10)
             Glosses_per_batch.append(total_gloss/10)
-            total_dloss = 0.0; total_gloss = 0.0; print(fake[0])
-
+            total_dloss = 0.0; total_gloss = 0.0; #print(fake[0])
+    G_grad_first.append(sum(G_grad_first_b)/len(G_grad_first_b)); G_grad_last.append(sum(G_grad_last_b)/len(G_grad_last_b));
+    D_grad_first.append(sum(D_grad_first_b)/len(D_grad_first_b)); D_grad_last.append(sum(D_grad_last_b)/len(D_grad_last_b));
     Dlosses_per_epoch.append(sum(Dlosses_per_batch)/len(Dlosses_per_batch))
     Glosses_per_epoch.append(sum(Glosses_per_batch)/len(Glosses_per_batch))
+    
     save_checkpoint(Dstate={'epoch': epoch + 1,
                             'state_dict': Dnet.state_dict(),
                             'optimizer' : D_optimizer.state_dict()},\
@@ -222,6 +229,7 @@ ax.scatter([e for e in range(1,epoch_stop+1,1)], Dlosses_per_epoch)
 ax.set_xlabel("Epoch")
 ax.set_ylabel("Discriminator Loss per batch")
 ax.set_title("Discriminator Loss vs Epoch")
+plt.savefig(os.path.join("./data/",f"DLoss.png"))
 
 fig3 = plt.figure()
 ax1 = fig3.add_subplot(222)
@@ -229,4 +237,37 @@ ax1.scatter([e for e in range(1,epoch_stop+1,1)], Glosses_per_epoch)
 ax1.set_xlabel("Epoch")
 ax1.set_ylabel("Generator Loss per batch")
 ax1.set_title("Generator Loss vs Epoch")
+plt.savefig(os.path.join("./data/",f"GLoss.png"))
+
+fig4 = plt.figure()
+ax2 = fig4.add_subplot(222)
+ax2.scatter([e for e in range(1,epoch_stop+1,1)], D_grad_first)
+ax2.set_xlabel("Epoch")
+ax2.set_ylabel("D_grad_first per batch")
+ax2.set_title("D_grad_first vs Epoch")
+plt.savefig(os.path.join("./data/",f"Dgradfirst.png"))
+
+fig5 = plt.figure()
+ax3 = fig5.add_subplot(222)
+ax3.scatter([e for e in range(1,epoch_stop+1,1)], D_grad_last)
+ax3.set_xlabel("Epoch")
+ax3.set_ylabel("D_grad_last per batch")
+ax3.set_title("D_grad_last vs Epoch")
+plt.savefig(os.path.join("./data/",f"Dgradlast.png"))
+
+fig6 = plt.figure()
+ax4 = fig6.add_subplot(222)
+ax4.scatter([e for e in range(1,epoch_stop+1,1)], G_grad_first)
+ax4.set_xlabel("Epoch")
+ax4.set_ylabel("G_grad_first per batch")
+ax4.set_title("G_grad_first vs Epoch")
+plt.savefig(os.path.join("./data/",f"Ggradfirst.png"))
+
+fig7 = plt.figure()
+ax5 = fig7.add_subplot(222)
+ax5.scatter([e for e in range(1,epoch_stop+1,1)], G_grad_last)
+ax5.set_xlabel("Epoch")
+ax5.set_ylabel("G_grad_last per batch")
+ax5.set_title("G_grad_last vs Epoch")
+plt.savefig(os.path.join("./data/",f"Ggradlast.png"))
 print('Finished Training')
