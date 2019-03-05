@@ -105,7 +105,14 @@ def decode_generator_image(data,g_input):
     ax2[0].imshow(d_img.transpose(1,2,0))
     ax2[1].imshow(img.transpose(1,2,0))
     return fig2
-    
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)   
 
 #resize_images()
 dataset = compile_images()
@@ -125,19 +132,31 @@ train_loader = DataLoader(trainset, batch_size=b_size,\
 cuda = torch.cuda.is_available()
 Dnet = D_net()
 Gnet = G_net(batch_size=b_size)
+
+'''
+## Xavier weights initialization
+for p in Dnet.parameters():
+    if p.dim() > 1:
+        nn.init.xavier_uniform_(p)
+for p in Gnet.parameters():
+    if p.dim() > 1:
+        nn.init.xavier_uniform_(p)
+'''
+# Normal distribution weights initialization
+Dnet.apply(weights_init); Gnet.apply(weights_init)
 if cuda:
     Dnet.cuda(); Gnet.cuda()
 
 criterion = nn.BCELoss()
-D_optimizer = optim.Adam(Dnet.parameters(), lr=0.0002, betas=(0.5, 0.999))
-G_optimizer = optim.Adam(Gnet.parameters(), lr=0.0002, betas=(0.5, 0.999))
-start = load(Dnet, Gnet, D_optimizer, G_optimizer, load_best=False)
+D_optimizer = optim.Adam(Dnet.parameters(), lr=0.0005, betas=(0.5, 0.999))
+G_optimizer = optim.Adam(Gnet.parameters(), lr=0.0005, betas=(0.5, 0.999))
+#start = load(Dnet, Gnet, D_optimizer, G_optimizer, load_best=False)
 
 Dlosses_per_epoch = []
 Glosses_per_epoch = []
 start_epoch = 0
-epoch_stop = 250
-epochs = 500
+epoch_stop = 100
+epochs = 2500
 best_acc = 85
 generator = generator_inputs()
 for epoch in range(start_epoch, epochs):
@@ -153,14 +172,14 @@ for epoch in range(start_epoch, epochs):
         Dnet.zero_grad()
         
         # train discriminator on real data
-        outputs = Dnet(data)
-        real_loss = criterion(outputs, torch.autograd.Variable(torch.ones([outputs.size()[0],1])).cuda())
+        real_outputs = Dnet(data)
+        real_loss = criterion(real_outputs, torch.autograd.Variable(torch.ones([real_outputs.size()[0],1])).cuda())
         real_loss.backward()
         # train discriminator on fake data
-        fake = Gnet(generator(outputs.size()[0],8*8).cuda()).detach()
-        outputs = (fake + 1)*255/2
-        outputs = Dnet(outputs)
-        fake_loss = criterion(outputs, torch.autograd.Variable(torch.zeros([outputs.size()[0],1])).cuda())
+        fake = Gnet(generator(real_outputs.size()[0],8*8).cuda())
+        outputs = (fake.detach() + 1)*255/2
+        fake_outputs = Dnet(outputs/255)
+        fake_loss = criterion(fake_outputs, torch.autograd.Variable(torch.zeros([fake_outputs.size()[0],1])).cuda())
         fake_loss.backward()
         D_loss = real_loss + fake_loss
         # update discriminator's weights
@@ -168,9 +187,9 @@ for epoch in range(start_epoch, epochs):
         
         # train generator on discriminator's evaluation, to improve generator outputs
         Gnet.zero_grad()
-        outputs = (fake + 1)*255/2
-        outputs = Dnet(outputs)
-        G_loss = criterion(outputs, torch.autograd.Variable(torch.ones([outputs.size()[0],1])).cuda()) # G to generate real images
+        outputs1 = (fake + 1)*255/2
+        d_outputs = Dnet(outputs1/255)
+        G_loss = criterion(d_outputs, torch.autograd.Variable(torch.ones([d_outputs.size()[0],1])).cuda()) # G to generate real images
         G_loss.backward()
         G_optimizer.step()
         
@@ -181,7 +200,7 @@ for epoch in range(start_epoch, epochs):
                   (epoch + 1, (i + 1)*b_size, len(trainset), total_dloss/10, total_gloss/10))
             Dlosses_per_batch.append(total_dloss/10)
             Glosses_per_batch.append(total_gloss/10)
-            total_loss = 0.0
+            total_dloss = 0.0; total_gloss = 0.0; print(fake[0])
 
     Dlosses_per_epoch.append(sum(Dlosses_per_batch)/len(Dlosses_per_batch))
     Glosses_per_epoch.append(sum(Glosses_per_batch)/len(Glosses_per_batch))
