@@ -10,6 +10,7 @@
 *.pptx
 *.xlsx
 *.sql
+*.pyc
 /data/*
 /.ipynb_checkpoints/*
 /savemodel/*
