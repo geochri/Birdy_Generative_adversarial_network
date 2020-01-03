@@ -17,11 +17,9 @@ from torch import optim
 import torch
 import shutil
 
-basepath = "./data/_12_Feb19/"
-
 ### open train files and compile into df, then save
 
-def resize_images(size=128):
+def resize_images(basepath, size=64):
     for idx, file in enumerate(os.listdir(basepath)):
         try:
             imagename = os.path.join(basepath,file)
@@ -32,14 +30,14 @@ def resize_images(size=128):
             print(f"Image open error {idx}")
             continue
         
-def compile_images():
+def compile_images(basepath):
     dataset = []
     for idx,file in enumerate(os.listdir(basepath)):
         try:
             imagename = os.path.join(basepath,file)
             img = Image.open(imagename)
             img = np.array(img)
-            if img.shape == (128, 128, 3):
+            if img.shape == (64, 64, 3):
                 dataset.append(img)
         except:
             print(f"Image compile error {idx}")
@@ -59,8 +57,10 @@ class birds_dataset(Dataset):
         return img
 
 ### save model and optimizer states
-def save_checkpoint(Dstate, Gstate, is_best=False, Dfilename='./savemodel/D_checkpoint.pth.tar',\
-                    Gfilename='./savemodel/G_checkpoint.pth.tar'):
+def save_checkpoint(Dstate, Gstate, is_best=False, Dfilename='./data/savemodel/D_checkpoint.pth.tar',\
+                    Gfilename='./data/savemodel/G_checkpoint.pth.tar'):
+    if not os.path.isdir('./data/savemodel/'):
+        os.mkdir('./data/savemodel')
     torch.save(Dstate, Dfilename)
     torch.save(Gstate, Gfilename)
     if is_best:
@@ -68,22 +68,28 @@ def save_checkpoint(Dstate, Gstate, is_best=False, Dfilename='./savemodel/D_chec
         shutil.copyfile(Gfilename, './savemodel/G_model_best.pth.tar')
         
 ### Loads model and optimizer states
-def load(Dnet, Gnet, Doptimizer, Goptimizer, load_best=False):
-    if load_best == False:
-        Dcheckpoint = torch.load("./savemodel/D_checkpoint.pth.tar")
-        Gcheckpoint = torch.load("./savemodel/G_checkpoint.pth.tar")
+def load(Dnet, Gnet, Doptimizer, Goptimizer, Dscheduler, Gscheduler, load_best=False):
+    if os.path.isfile("./data/savemodel/D_checkpoint.pth.tar") or os.path.isfile("./data/savemodel/D_model_best.pth.tar"):
+        if load_best == False:
+            Dcheckpoint = torch.load("./data/savemodel/D_checkpoint.pth.tar")
+            Gcheckpoint = torch.load("./data/savemodel/G_checkpoint.pth.tar")
+        else:
+            Dcheckpoint = torch.load("./data/savemodel/D_model_best.pth.tar")
+            Gcheckpoint = torch.load("./data/savemodel/G_model_best.pth.tar")
+        start_epoch = Dcheckpoint['epoch']
+        Dnet.load_state_dict(Dcheckpoint['state_dict'])
+        Doptimizer.load_state_dict(Dcheckpoint['optimizer'])
+        #Dscheduler.load_state_dict(Dcheckpoint['scheduler'])
+        Gnet.load_state_dict(Gcheckpoint['state_dict'])
+        Goptimizer.load_state_dict(Gcheckpoint['optimizer'])
+        #Gscheduler.load_state_dict(Gcheckpoint['scheduler'])
     else:
-        Dcheckpoint = torch.load("./savemodel/D_model_best.pth.tar")
-        Gcheckpoint = torch.load("./savemodel/G_model_best.pth.tar")
-    start_epoch = Dcheckpoint['epoch']
-    Dnet.load_state_dict(Dcheckpoint['state_dict'])
-    Doptimizer.load_state_dict(Dcheckpoint['optimizer'])
-    Gnet.load_state_dict(Gcheckpoint['state_dict'])
-    Goptimizer.load_state_dict(Gcheckpoint['optimizer'])
+        start_epoch = 0
     return start_epoch
 
 def generator_inputs():
-    return lambda batch_size, input_size: torch.rand(batch_size, input_size)
+    #return lambda batch_size, input_size: torch.rand(batch_size, input_size)
+    return lambda batch_size, input_size: torch.randn(batch_size, input_size, 1, 1)
 
 '''
 def transform_generated(tensor):
@@ -115,15 +121,13 @@ def weights_init(m):
 
 
 def train_and_fit(args):
-    #resize_images()
-    dataset = compile_images()
+    resize_images(args.train_data)
+    dataset = compile_images(args.train_data)
     
     transform = transforms.Compose([transforms.ToPILImage(),\
                                     transforms.RandomHorizontalFlip(),\
                                     transforms.ToTensor(),\
                                     ])
-    # transforms.Normalize(mean=[0.485, 0.456, 0.406],\
-    #                                                     std=[0.229, 0.224, 0.225])
     
     trainset = birds_dataset(dataset=dataset, transform=transform)
     train_loader = DataLoader(trainset, batch_size=args.batch_size,\
@@ -156,15 +160,22 @@ def train_and_fit(args):
         Dnet.cuda(); Gnet.cuda()
     
     criterion = nn.BCELoss()
-    D_optimizer = optim.Adam(Dnet.parameters(), lr=0.0005, betas=(0.5, 0.999))
-    G_optimizer = optim.Adam(Gnet.parameters(), lr=0.0005, betas=(0.5, 0.999))
-    #start = load(Dnet, Gnet, D_optimizer, G_optimizer, load_best=False)
+    D_optimizer = optim.Adam(Dnet.parameters(), lr=args.lr, betas=(0.5, 0.999))
+    G_optimizer = optim.Adam(Gnet.parameters(), lr=1.2*args.lr, betas=(0.5, 0.999))
+    start_epoch = 0
+    '''
+    D_scheduler = optim.lr_scheduler.MultiStepLR(D_optimizer, milestones=[i for i in range(start_epoch, args.num_epochs) if i % 20 == 0],\
+                                                                          gamma=0.8)
+    G_scheduler = optim.lr_scheduler.MultiStepLR(G_optimizer, milestones=[i for i in range(start_epoch, args.num_epochs) if i % 20 == 0],\
+                                                                          gamma=0.8)
+    '''
+    D_scheduler, G_scheduler = None, None
+    start_epoch = load(Dnet, Gnet, D_optimizer, G_optimizer, D_scheduler, G_scheduler, load_best=False)
     
     Dlosses_per_epoch = []
     Glosses_per_epoch = []
     G_grad_first = []; G_grad_last = []; D_grad_first = []; D_grad_last = []
-    start_epoch = 0
-    epoch_stop = 100
+    epoch_stop = 1000
     best_acc = 85
     generator = generator_inputs()
     for epoch in range(start_epoch, args.num_epochs):
@@ -180,19 +191,20 @@ def train_and_fit(args):
             Dnet.zero_grad()
             
             # train discriminator on real data
-            real_outputs = Dnet(data)
+            real_outputs = Dnet(data); #print(real_outputs.shape); print(torch.autograd.Variable(torch.ones([real_outputs.size()[0],1])).cuda().shape)
             real_loss = criterion(real_outputs, torch.autograd.Variable(torch.ones([real_outputs.size()[0],1])).cuda())
             real_loss.backward()
             # train discriminator on fake data
-            fake = Gnet(generator(real_outputs.size()[0],8*8).cuda())
+            fake = Gnet(generator(real_outputs.size()[0], 100).cuda())
             outputs = (fake.detach() + 1)*255/2
             fake_outputs = Dnet(outputs/255)
             fake_loss = criterion(fake_outputs, torch.autograd.Variable(torch.zeros([fake_outputs.size()[0],1])).cuda())
             fake_loss.backward()
             D_loss = real_loss + fake_loss
-            D_grad_first_b.append(Dnet.conv1.weight.grad.mean().item()); D_grad_last_b.append(Dnet.conv5.weight.grad.mean().item())
+            #D_grad_first_b.append(Dnet.conv1.weight.grad.mean().item()); D_grad_last_b.append(Dnet.conv5.weight.grad.mean().item())
             # update discriminator's weights
             D_optimizer.step()
+            #D_scheduler.step()
             
             # train generator on discriminator's evaluation, to improve generator outputs
             Gnet.zero_grad()
@@ -200,30 +212,36 @@ def train_and_fit(args):
             d_outputs = Dnet(outputs1/255)
             G_loss = criterion(d_outputs, torch.autograd.Variable(torch.ones([d_outputs.size()[0],1])).cuda()) # G to generate real images
             G_loss.backward()
-            G_grad_first_b.append(Gnet.dconv1.weight.grad.mean().item()); G_grad_last_b.append(Gnet.dconv5.weight.grad.mean().item())
+            #G_grad_first_b.append(Gnet.dconv1.weight.grad.mean().item()); G_grad_last_b.append(Gnet.dconv5.weight.grad.mean().item())
             G_optimizer.step()
+            #G_scheduler.step()
             
             total_dloss += D_loss.item()
             total_gloss += G_loss.item()
             if i % 10 == 9:    # print every 1000 mini-batches of size = batch_size
                 print('[Epoch: %d, %5d/ %d points] D loss per batch: %.5f \t G loss per batch: %.5f' %
                       (epoch + 1, (i + 1)*args.batch_size, len(trainset), total_dloss/10, total_gloss/10))
+                '''
                 print("Gradients D_1 D_5 G_1 G_5: %.5f, %.5f, %.5f, %.5f" % (D_grad_first_b[-1], D_grad_last_b[-1], \
                                                                              G_grad_first_b[-1], G_grad_last_b[-1]))
+                '''
                 Dlosses_per_batch.append(total_dloss/10)
                 Glosses_per_batch.append(total_gloss/10)
                 total_dloss = 0.0; total_gloss = 0.0; #print(fake[0])
-        G_grad_first.append(sum(G_grad_first_b)/len(G_grad_first_b)); G_grad_last.append(sum(G_grad_last_b)/len(G_grad_last_b));
-        D_grad_first.append(sum(D_grad_first_b)/len(D_grad_first_b)); D_grad_last.append(sum(D_grad_last_b)/len(D_grad_last_b));
+        #G_grad_first.append(sum(G_grad_first_b)/len(G_grad_first_b)); G_grad_last.append(sum(G_grad_last_b)/len(G_grad_last_b));
+        #D_grad_first.append(sum(D_grad_first_b)/len(D_grad_first_b)); D_grad_last.append(sum(D_grad_last_b)/len(D_grad_last_b));
         Dlosses_per_epoch.append(sum(Dlosses_per_batch)/len(Dlosses_per_batch))
         Glosses_per_epoch.append(sum(Glosses_per_batch)/len(Glosses_per_batch))
         
         save_checkpoint(Dstate={'epoch': epoch + 1,
                                 'state_dict': Dnet.state_dict(),
-                                'optimizer' : D_optimizer.state_dict()},\
+                                'optimizer' : D_optimizer.state_dict(),\
+                                'scheduler': D_scheduler.state_dict() if D_scheduler != None else None},\
                         Gstate={'epoch': epoch + 1,
                                 'state_dict': Gnet.state_dict(),
-                                'optimizer' : G_optimizer.state_dict()})
+                                'optimizer' : G_optimizer.state_dict(),\
+                                'scheduler': G_scheduler.state_dict() if G_scheduler != None else None})
+        
         fig2 = decode_generator_image(data[0],fake[0])
         fig2.show()
         plt.savefig(os.path.join("./data/",f"birdy_{epoch}.png"))

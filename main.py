@@ -19,19 +19,20 @@ logger = logging.getLogger('__file__')
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--crawl", type=int, default=0, help="0: Don't crawl for new images, 1: Crawl it")
+    parser.add_argument("--train_data", type=str, default="./data/_01_Jan20/", help="Training data folder containing images")
     parser.add_argument("--model_no", type=int, default=1, help="0: vanilla GAN, 1: DCGAN")
     parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
-    parser.add_argument("--num_epochs", type=int, default=8000, help="No of epochs")
-    parser.add_argument("--lr", type=float, default=0.0003, help="learning rate")
+    parser.add_argument("--num_epochs", type=int, default=700, help="No of epochs")
+    parser.add_argument("--lr", type=float, default=0.0002, help="learning rate")
     parser.add_argument("--gradient_acc_steps", type=int, default=4, help="Number of steps of gradient accumulation")
     args = parser.parse_args()
     save_as_pickle("args.pkl", args)
     
     if args.crawl == 1:
         w = GoogleImageExtractor('')
-        searchlist_filename = "search_terms.txt"
-        w.set_num_image_to_dl(500)
+        searchlist_filename = "./data/search_terms.txt"
+        w.set_num_image_to_dl(1000)
         w.get_searchlist_fr_file(searchlist_filename) #replace the searclist
         w.multi_search_download()
         
-    train_and_fit(args)
+    output = train_and_fit(args)
