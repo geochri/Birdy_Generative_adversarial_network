@@ -21,10 +21,10 @@ if __name__ == "__main__":
     parser.add_argument("--crawl", type=int, default=0, help="0: Don't crawl for new images, 1: Crawl it")
     parser.add_argument("--train_data", type=str, default="./data/_01_Jan20/", help="Training data folder containing images")
     parser.add_argument("--model_no", type=int, default=1, help="0: vanilla GAN, 1: DCGAN")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
-    parser.add_argument("--num_epochs", type=int, default=700, help="No of epochs")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--num_epochs", type=int, default=750, help="No of epochs")
     parser.add_argument("--lr", type=float, default=0.0002, help="learning rate")
-    parser.add_argument("--gradient_acc_steps", type=int, default=4, help="Number of steps of gradient accumulation")
+    parser.add_argument("--gradient_acc_steps", type=int, default=1, help="Number of steps of gradient accumulation")
     args = parser.parse_args()
     save_as_pickle("args.pkl", args)
     

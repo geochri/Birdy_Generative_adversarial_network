@@ -16,6 +16,7 @@ import torch.nn as nn
 from torch import optim
 import torch
 import shutil
+from .misc import save_as_pickle, load_pickle
 
 ### open train files and compile into df, then save
 
@@ -85,7 +86,14 @@ def load(Dnet, Gnet, Doptimizer, Goptimizer, Dscheduler, Gscheduler, load_best=F
         #Gscheduler.load_state_dict(Gcheckpoint['scheduler'])
     else:
         start_epoch = 0
-    return start_epoch
+    
+    Dlosses_per_epoch = []
+    Glosses_per_epoch = []
+    if os.path.isfile('./data/losses.pkl'):
+        losses = load_pickle("./losses.pkl")
+        Dlosses_per_epoch = losses['DLoss']
+        Glosses_per_epoch = losses['GLoss']
+    return start_epoch, Dlosses_per_epoch, Glosses_per_epoch
 
 def generator_inputs():
     #return lambda batch_size, input_size: torch.rand(batch_size, input_size)
@@ -170,10 +178,9 @@ def train_and_fit(args):
                                                                           gamma=0.8)
     '''
     D_scheduler, G_scheduler = None, None
-    start_epoch = load(Dnet, Gnet, D_optimizer, G_optimizer, D_scheduler, G_scheduler, load_best=False)
+    start_epoch, Dlosses_per_epoch, Glosses_per_epoch = load(Dnet, Gnet, D_optimizer, G_optimizer, \
+                                                             D_scheduler, G_scheduler, load_best=False)
     
-    Dlosses_per_epoch = []
-    Glosses_per_epoch = []
     G_grad_first = []; G_grad_last = []; D_grad_first = []; D_grad_last = []
     epoch_stop = 1000
     best_acc = 85
@@ -245,52 +252,53 @@ def train_and_fit(args):
         fig2 = decode_generator_image(data[0],fake[0])
         fig2.show()
         plt.savefig(os.path.join("./data/",f"birdy_{epoch}.png"))
+        save_as_pickle('losses.pkl', {'DLoss': Dlosses_per_epoch, 'GLoss': Glosses_per_epoch})
         if epoch == epoch_stop-1:
                 break
     
     fig = plt.figure()
-    ax = fig.add_subplot(222)
-    ax.scatter([e for e in range(1,epoch_stop+1,1)], Dlosses_per_epoch)
+    ax = fig.add_subplot(111)
+    ax.scatter([e for e in range(len(Dlosses_per_epoch))], Dlosses_per_epoch)
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Discriminator Loss per batch")
     ax.set_title("Discriminator Loss vs Epoch")
     plt.savefig(os.path.join("./data/",f"DLoss.png"))
     
     fig3 = plt.figure()
-    ax1 = fig3.add_subplot(222)
-    ax1.scatter([e for e in range(1,epoch_stop+1,1)], Glosses_per_epoch)
+    ax1 = fig3.add_subplot(111)
+    ax1.scatter([e for e in range(len(Glosses_per_epoch))], Glosses_per_epoch)
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Generator Loss per batch")
     ax1.set_title("Generator Loss vs Epoch")
     plt.savefig(os.path.join("./data/",f"GLoss.png"))
     
     fig4 = plt.figure()
-    ax2 = fig4.add_subplot(222)
-    ax2.scatter([e for e in range(1,epoch_stop+1,1)], D_grad_first)
+    ax2 = fig4.add_subplot(111)
+    ax2.scatter([e for e in range(len(D_grad_first))], D_grad_first)
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("D_grad_first per batch")
     ax2.set_title("D_grad_first vs Epoch")
     plt.savefig(os.path.join("./data/",f"Dgradfirst.png"))
     
     fig5 = plt.figure()
-    ax3 = fig5.add_subplot(222)
-    ax3.scatter([e for e in range(1,epoch_stop+1,1)], D_grad_last)
+    ax3 = fig5.add_subplot(111)
+    ax3.scatter([e for e in range(len(D_grad_last))], D_grad_last)
     ax3.set_xlabel("Epoch")
     ax3.set_ylabel("D_grad_last per batch")
     ax3.set_title("D_grad_last vs Epoch")
     plt.savefig(os.path.join("./data/",f"Dgradlast.png"))
     
     fig6 = plt.figure()
-    ax4 = fig6.add_subplot(222)
-    ax4.scatter([e for e in range(1,epoch_stop+1,1)], G_grad_first)
+    ax4 = fig6.add_subplot(111)
+    ax4.scatter([e for e in range(len(G_grad_first))], G_grad_first)
     ax4.set_xlabel("Epoch")
     ax4.set_ylabel("G_grad_first per batch")
     ax4.set_title("G_grad_first vs Epoch")
     plt.savefig(os.path.join("./data/",f"Ggradfirst.png"))
     
     fig7 = plt.figure()
-    ax5 = fig7.add_subplot(222)
-    ax5.scatter([e for e in range(1,epoch_stop+1,1)], G_grad_last)
+    ax5 = fig7.add_subplot(111)
+    ax5.scatter([e for e in range(len(G_grad_last))], G_grad_last)
     ax5.set_xlabel("Epoch")
     ax5.set_ylabel("G_grad_last per batch")
     ax5.set_title("G_grad_last vs Epoch")
