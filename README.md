@@ -20,9 +20,9 @@ main.py [--crawl]
 ```
 
 ## Results
-![](https://github.com/plkmo/Birdy_Generative_adversarial_network/tree/master/results/DLoss.png)
-![](https://github.com/plkmo/Birdy_Generative_adversarial_network/tree/master/results/GLoss.png)
+![](https://github.com/plkmo/Birdy_Generative_adversarial_network/blob/master/results/DLoss.png)
+![](https://github.com/plkmo/Birdy_Generative_adversarial_network/blob/master/results/GLoss.png)
 
-![](https://github.com/plkmo/Birdy_Generative_adversarial_network/tree/master/results/birdy_703.png)
+![](https://github.com/plkmo/Birdy_Generative_adversarial_network/blob/master/results/birdy_703.png)
 Left: Training image, Right: Generated image
 
