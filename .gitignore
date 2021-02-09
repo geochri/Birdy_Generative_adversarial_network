@@ -1,7 +1,6 @@
 *.tar
 *.jpg
 *.jpeg
-*.png
 *.gif
 *.bmp
 *.tiff
@@ -10,6 +9,8 @@
 *.pptx
 *.xlsx
 *.sql
+*.pyc
+*.log
 /data/*
 /.ipynb_checkpoints/*
 /savemodel/*

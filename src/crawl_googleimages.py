@@ -46,7 +46,10 @@ class GoogleImageExtractor(object):
                                 self.postfix_of_search_url
  
     def retrieve_source_fr_html(self):
-        driver = webdriver.Chrome()
+        try:
+            driver = webdriver.Chrome()
+        except:
+            driver = webdriver.Firefox()
         driver.get(self.target_url_str)
         try:
             driver.execute_script("window.scrollTo(0, 30000)")
